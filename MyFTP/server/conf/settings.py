@@ -10,7 +10,10 @@ LOG_DIR = os.path.join(BASE_DIR, 'log')
 
 # host and port of the server
 HOST = '0.0.0.0'
-PORT = 9999
+PORT = 9998
 
 # maximum number of connections to the server
 MAX_SOCKET_LISTEN = 5
+
+# path of the accounts.ini file where the user accounts are stored
+ACCOUNT_FILE = os.path.join(BASE_DIR, 'conf', 'accounts.ini')
