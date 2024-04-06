@@ -40,6 +40,10 @@ class FTPServer(object):
             self.conn, self.addr = self.sock.accept()
             print('connect from: ', self.addr)
             self.handle()
+
+    def create_user(self):
+        '''create a new user'''
+        pass
     
 
     '''handle the connection'''

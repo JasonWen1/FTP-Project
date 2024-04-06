@@ -41,9 +41,7 @@ class Utils(object):
     # create a new user
     def createuser(self):
         print('create a new user')
-        #server = main.FTPServer(self)
-        #server.create_user()
+        server = main.FTPServer(self)
+        server.create_user()
 
-
-    
 
