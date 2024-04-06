@@ -1,6 +1,7 @@
 import socket
 from conf import settings
 import json
+import os
 import configparser
 import hashlib
 
@@ -9,7 +10,9 @@ class FTPServer(object):
 
     STATUS_CODE = {
         200: 'Passed authentication!',
-        201: 'Incorrect username or password!'
+        201: 'Incorrect username or password!',
+        300: 'File not exist!',
+        301: 'File exist!',
     }
 
     MSG_SIZE = 1024
@@ -22,6 +25,7 @@ class FTPServer(object):
         self.sock.bind((settings.HOST, settings.PORT))
         self.sock.listen(settings.MAX_SOCKET_LISTEN)
         self.accounts = self.load_accounts()
+        self.user = None
     
 
     '''start the server'''
@@ -71,6 +75,9 @@ class FTPServer(object):
             print('password2:', password_md5.hexdigest())
             if _password == password_md5.hexdigest():
                 print('passed authentication...')
+                self.user = self.accounts[username]
+                # set the home directory for the user
+                self.user['home'] = os.path.join(settings.USER_BASE_DIR, username)
                 return True
             print('incorrect username or password')
             return False
@@ -106,3 +113,25 @@ class FTPServer(object):
             self.send_response(status_code=200)
         else:
             self.send_response(status_code=201)
+
+    
+    
+    def _get(self, data):
+        '''get the file name from the client and let the client download the file'''
+        '''
+        step1: get the file name from the client
+        step2: check if the file exists
+        step3: if the file exist, send the file to the client in chunks
+        step4: if the file does not exist, send the response to the client
+        '''
+        filename = data.get('filename')
+        full_path = os.path.join(self.user['home'], filename)
+        if os.path.isfile(full_path):
+            file_size = os.stat(full_path).st_size
+            self.send_response(status_code=301, file_size=file_size)
+            with open(full_path, 'rb') as f:
+                for line in f:
+                    self.conn.send(line)
+                print('file sent successfully to the client from ', full_path)
+        else:
+            self.send_response(status_code=300)

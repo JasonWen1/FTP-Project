@@ -7,6 +7,7 @@ class FTPClient(object):
     '''FTP client class'''
 
     MSG_SIZE = 1024
+    RECV_SIZE = 8192
 
     def __init__(self):
         self.username = None
@@ -91,12 +92,77 @@ class FTPClient(object):
 
     '''interactive mode'''
     def interactive(self):
-        if not self.auth():
-            print('Error: authentication failed!')
-            return
+        if  self.auth():
+            while True:
+                user_input = input("[%s]>>:" % self.username).strip()
+                if not user_input:
+                    continue
+
+                cmd_list = user_input.split()
+                if hasattr(self, "_%s" % cmd_list[0]):
+                    func = getattr(self, "_%s" % cmd_list[0])
+                    func(cmd_list[1:])
+                else:
+                    print('Invalid command!')
+    
+    ''' check the parameters of the command in the interactive mode'''
+    def check_cmd_params(self, cmd_list, min_params=None, max_params=None, exact_params=None):
+        '''check the parameters of the command'''
+        if min_params:
+            if len(cmd_list) < min_params:
+                print('Error: too few parameters!')
+                return False
+        if max_params:
+            if len(cmd_list) > max_params:
+                print('Error: too many parameters!')
+                return False
+        if exact_params:
+            if len(cmd_list) != exact_params:
+                print('Error: wrong number of parameters!')
+                return False
+        return True
+
+
+    def send_msg(self, action_type, **kwargs):
+        '''send standard message to the server'''
+        msg_data = {
+            'action_type': action_type,
+            'fill': ''
+        }
+        msg_data.update(kwargs)
+
+        bytes_data = json.dumps(msg_data).encode('utf-8')
+        if self.MSG_SIZE > len(bytes_data):
+            msg_data['fill'] = msg_data['fill'].zfill(self.MSG_SIZE - len(bytes_data))
+            bytes_data = json.dumps(msg_data).encode()
         
+        self.sock.send(bytes_data)
 
 
+    def _get(self, cmd_list):
+        '''get file from the server'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            filename = cmd_list[0]
+            self.send_msg('get', filename=filename)
+            response = self.get_response()
+            if response.get('status_code') == 301:
+                file_size = response.get('file_size')
+
+                received_size = 0
+                with open(filename, 'wb') as f:
+                    while received_size < file_size:
+                        if file_size - received_size < self.RECV_SIZE:
+                            data = self.sock.recv(file_size - received_size)
+                        else:
+                            data = self.sock.recv(self.RECV_SIZE)
+                        received_size += len(data)
+                        f.write(data)
+                        print(file_size, received_size)
+                    else:
+                        print('file [%s] received done! Received file size is [%s]' % (filename, file_size))
+            else:
+                print(response.get('status_msg'))
+            
 
 if __name__ == '__main__':
     client = FTPClient()
