@@ -4,6 +4,7 @@ import json
 import os
 import configparser
 import hashlib
+import subprocess
 
 class FTPServer(object):
     '''FTP server class'''
@@ -13,6 +14,7 @@ class FTPServer(object):
         201: 'Incorrect username or password!',
         300: 'File not exist!',
         301: 'File exist!',
+        302: 'Ready!',
     }
 
     MSG_SIZE = 1024
@@ -26,6 +28,7 @@ class FTPServer(object):
         self.sock.listen(settings.MAX_SOCKET_LISTEN)
         self.accounts = self.load_accounts()
         self.user = None
+        self.user_current_dir = None
     
 
     '''start the server'''
@@ -78,6 +81,8 @@ class FTPServer(object):
                 self.user = self.accounts[username]
                 # set the home directory for the user
                 self.user['home'] = os.path.join(settings.USER_BASE_DIR, username)
+                #set the current directory for the user
+                self.user_current_dir = self.user['home']
                 return True
             print('incorrect username or password')
             return False
@@ -135,3 +140,25 @@ class FTPServer(object):
                 print('file sent successfully to the client from ', full_path)
         else:
             self.send_response(status_code=300)
+
+    
+    def _ls(self, data):
+        '''list the files in the directory'''
+        '''
+        step1: get the file list
+        step2: send the file list to the client
+        '''
+        # get the file list via the ls command and get the result from pipe
+        cmd_obj = subprocess.Popen('ls %s' % self.user_current_dir, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout = cmd_obj.stdout.read()
+        stderr = cmd_obj.stderr.read()
+
+        cmd_result = stdout + stderr
+        cmd_result_size = len(cmd_result)
+
+        if cmd_result_size == 0:
+            cmd_result = b'no files in the directory'
+            cmd_result_size = len(cmd_result)
+        
+        self.send_response(status_code=302, cmd_result_size=cmd_result_size)
+        self.conn.sendall(cmd_result)

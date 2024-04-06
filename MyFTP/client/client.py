@@ -139,6 +139,24 @@ class FTPClient(object):
         self.sock.send(bytes_data)
 
 
+    def _ls(self, cmd_list):
+        '''list files in the server current directory'''
+        self.send_msg(action_type='ls')
+        response = self.get_response()
+        if response.get('status_code') == 302:
+            cmd_result_size = response.get('cmd_result_size')
+            received_size = 0
+            cmd_result = b''
+            while received_size < cmd_result_size:
+                if cmd_result_size - received_size < self.RECV_SIZE:
+                    data = self.sock.recv(cmd_result_size - received_size)
+                else:
+                    data = self.sock.recv(self.RECV_SIZE)
+                received_size += len(data)
+                cmd_result += data
+            print(cmd_result.decode())
+
+
     def _get(self, cmd_list):
         '''get file from the server'''
         if self.check_cmd_params(cmd_list, exact_params=1):
