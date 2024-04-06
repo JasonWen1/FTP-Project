@@ -21,10 +21,7 @@ class Utils(object):
         msg = '''
         valid command is:
         start       start FTP server
-        stop        stop FTP　server
-        restart     restart FTP server
-        createuser  username    create a ftp user
-
+        createuser  create a new user
         '''
         print(msg)
         exit(1)
@@ -41,8 +38,12 @@ class Utils(object):
         server = main.FTPServer(self)
         server.run()
 
-    # stop the server
-    def creteuser(self):
-        print(self.sys_argv)
+    # create a new user
+    def createuser(self):
+        print('create a new user')
+        #server = main.FTPServer(self)
+        #server.create_user()
+
+
     
 
