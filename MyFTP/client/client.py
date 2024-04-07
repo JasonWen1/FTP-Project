@@ -172,6 +172,19 @@ class FTPClient(object):
             if response.get('status_code') == 310:
                 self.terminal_display = "[/%s%s]" % (self.username, response.get('current_dir'))
                 self.current_dir = response.get('current_dir')
+    
+
+    def _mkdir(self, cmd_list):
+        '''create a directory in the server'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            dir_name = cmd_list[0]
+            self.send_msg(action_type='mkdir', dir_name=dir_name)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 320:
+                print('Successfully created directory [%s]' % dir_name)
+            else:
+                print('Failed to create directory [%s]' % dir_name)
 
 
     def progress_bar(self, total_size,current_percent=0,last_percent=0):

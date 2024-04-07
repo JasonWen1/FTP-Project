@@ -17,7 +17,9 @@ class FTPServer(object):
         301: 'File exist!',
         302: 'Ready!',
         310: 'Directory changed!',
-        311: 'Directory not exist!'
+        311: 'Directory not exist!',
+        320: 'Create directory successfully!',
+        321: 'Directory already exist!',
     }
 
     MSG_SIZE = 1024
@@ -228,4 +230,16 @@ class FTPServer(object):
             self.send_response(status_code=310, current_dir=relative_path)
         else:
             self.send_response(status_code=311)
+
+
+    def _mkdir(self, data):
+        '''create a directory'''
+        '''create a directory in the self.user_current_dir'''
+        dir_name = data.get('dir_name')
+        full_path = os.path.join(self.user_current_dir, dir_name)
+        if not os.path.exists(full_path):
+            os.mkdir(full_path)
+            self.send_response(status_code=320)
+        else:
+            self.send_response(status_code=321)
 
