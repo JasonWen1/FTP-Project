@@ -5,6 +5,7 @@ import os
 import configparser
 import hashlib
 import subprocess
+import time
 
 class FTPServer(object):
     '''FTP server class'''
@@ -20,6 +21,7 @@ class FTPServer(object):
     }
 
     MSG_SIZE = 1024
+    RECV_SIZE = 8192
 
 
     def __init__(self, utils):
@@ -41,7 +43,11 @@ class FTPServer(object):
         while True:
             self.conn, self.addr = self.sock.accept()
             print('connect from: ', self.addr)
-            self.handle()
+            try:
+                self.handle()
+            except Exception as e:
+                print('error: Something wrong with client, close connection!', e)
+                self.conn.close()
 
     def create_user(self):
         '''create a new user'''
@@ -146,6 +152,42 @@ class FTPServer(object):
                 print('file sent successfully to the client from ', full_path)
         else:
             self.send_response(status_code=300)
+
+
+
+    def _put(self, data):
+        '''
+        put the file to the server
+        1. get the file name and file size from the client
+        2. check if the file exists
+        (1) if the file exists, create a new file with file.timestamp suffix and then get the file from the client
+        (2) if the file does not exist, get the file from the client
+        '''
+        filename = data.get('filename')
+        full_path = os.path.join(self.user_current_dir, filename)
+        
+        if os.path.isfile(full_path):
+            full_path = os.path.join(self.user_current_dir, '%s.%s' % (filename, str(time.time())))
+        
+        f = open(full_path, 'wb')
+        file_size = data.get('file_size')
+        received_size = 0
+        while received_size < file_size:
+            if file_size - received_size < self.RECV_SIZE:
+                data = self.conn.recv(file_size - received_size)
+            else:
+                data = self.conn.recv(self.RECV_SIZE)
+            received_size += len(data)
+            f.write(data)
+            print(received_size, file_size)
+        else:
+            print('file [%s] uploaded done! Sent file size is [%s]' % (full_path, received_size))
+            f.close()
+
+
+
+
+
 
     
     def _ls(self, data):

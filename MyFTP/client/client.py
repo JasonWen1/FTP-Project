@@ -1,6 +1,7 @@
 import socket
 import optparse
 import json
+import os
 
 
 class FTPClient(object):
@@ -198,7 +199,32 @@ class FTPClient(object):
                         print('file [%s] received done! Received file size is [%s]' % (filename, file_size))
             else:
                 print(response.get('status_msg'))
-            
+
+    
+    def _put(self, cmd_list):
+        '''
+        put file to the server
+        1. check the file exists
+        2. get the file name and file size and send to the server
+        3. send the file to the server
+        '''
+
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            local_file = cmd_list[0]
+            if os.path.isfile(local_file):
+                file_size = os.stat(local_file).st_size
+                self.send_msg('put', filename = local_file, file_size=file_size)
+                f = open(local_file, 'rb')
+                for line in f:
+                    self.sock.send(line)
+                else:
+                    print('file [%s] uploaded done! Sent file size is [%s]' % (local_file, file_size))
+                    f.close()
+
+
+
+
+
 
 if __name__ == '__main__':
     client = FTPClient()
