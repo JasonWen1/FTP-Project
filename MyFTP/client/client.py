@@ -172,6 +172,18 @@ class FTPClient(object):
             if response.get('status_code') == 310:
                 self.terminal_display = "[/%s%s]" % (self.username, response.get('current_dir'))
                 self.current_dir = response.get('current_dir')
+
+
+    def progress_bar(self, total_size,current_percent=0,last_percent=0):
+        '''display the progress bar'''
+        while True:
+            received_size = yield current_percent
+            current_percent = int(received_size / total_size *100)
+
+            if current_percent > last_percent:
+                print("#" * int(current_percent / 2) + "{percent}%".format(percent=current_percent), end='\r',
+                      flush=True)
+                last_percent = current_percent 
             
 
 
@@ -186,6 +198,8 @@ class FTPClient(object):
                 # get the filename from the full path
                 filename1 = filename.split('/')[-1]
                 received_size = 0
+                progress = self.progress_bar(file_size)
+                next(progress)
                 with open(filename1, 'wb') as f:
                     while received_size < file_size:
                         if file_size - received_size < self.RECV_SIZE:
@@ -194,7 +208,7 @@ class FTPClient(object):
                             data = self.sock.recv(self.RECV_SIZE)
                         received_size += len(data)
                         f.write(data)
-                        print(file_size, received_size)
+                        progress.send(received_size)
                     else:
                         print('file [%s] received done! Received file size is [%s]' % (filename, file_size))
             else:
@@ -215,9 +229,15 @@ class FTPClient(object):
                 file_size = os.stat(local_file).st_size
                 self.send_msg('put', filename = local_file, file_size=file_size)
                 f = open(local_file, 'rb')
+                uploaded_size = 0
+                progress = self.progress_bar(file_size)
+                next(progress)
                 for line in f:
                     self.sock.send(line)
+                    uploaded_size += len(line)
+                    progress.send(uploaded_size)
                 else:
+                    print('\n')
                     print('file [%s] uploaded done! Sent file size is [%s]' % (local_file, file_size))
                     f.close()
 

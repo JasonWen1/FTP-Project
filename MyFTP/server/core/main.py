@@ -160,15 +160,16 @@ class FTPServer(object):
         put the file to the server
         1. get the file name and file size from the client
         2. check if the file exists
-        (1) if the file exists, create a new file with file.timestamp suffix and then get the file from the client
+        (1) if the file exists, create a new file with file.timestamp  and then get the file from the client
         (2) if the file does not exist, get the file from the client
         '''
         filename = data.get('filename')
         full_path = os.path.join(self.user_current_dir, filename)
         
         if os.path.isfile(full_path):
-            full_path = os.path.join(self.user_current_dir, '%s.%s' % (filename, str(time.time())))
-        
+            timestamp = str(time.time()).replace('.', '')
+            timestamp = ''.join(filter(str.isdigit, timestamp))
+            full_path = os.path.join(self.user_current_dir, '%s_%s%s' % (os.path.splitext(filename)[0], timestamp, os.path.splitext(filename)[1]))
         f = open(full_path, 'wb')
         file_size = data.get('file_size')
         received_size = 0
