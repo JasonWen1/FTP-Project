@@ -15,6 +15,8 @@ class FTPServer(object):
         300: 'File not exist!',
         301: 'File exist!',
         302: 'Ready!',
+        310: 'Directory changed!',
+        311: 'Directory not exist!'
     }
 
     MSG_SIZE = 1024
@@ -134,7 +136,7 @@ class FTPServer(object):
         step4: if the file does not exist, send the response to the client
         '''
         filename = data.get('filename')
-        full_path = os.path.join(self.user['home'], filename)
+        full_path = os.path.join(self.user_current_dir, filename)
         if os.path.isfile(full_path):
             file_size = os.stat(full_path).st_size
             self.send_response(status_code=301, file_size=file_size)
@@ -166,3 +168,21 @@ class FTPServer(object):
         
         self.send_response(status_code=302, cmd_result_size=cmd_result_size)
         self.conn.sendall(cmd_result)
+    
+
+    def _cd(self, data):
+        '''change the directory'''
+        '''use the target_dir to change the self.user_current_dir'''
+
+        target_dir = data.get('target_dir')
+        # get the full path of the target directory as an absolute path
+        full_path = os.path.abspath(os.path.join(self.user_current_dir,target_dir))
+        print('full_path: ', full_path)
+        if os.path.isdir(full_path) and full_path.startswith(self.user['home']):
+            self.user_current_dir = full_path
+            relative_path = self.user_current_dir.replace(self.user['home'], '')
+            print('relative_path: ', relative_path)
+            self.send_response(status_code=310, current_dir=relative_path)
+        else:
+            self.send_response(status_code=311)
+

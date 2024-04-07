@@ -11,6 +11,8 @@ class FTPClient(object):
 
     def __init__(self):
         self.username = None
+        self.current_dir = None
+        self.terminal_display = None
         parser = optparse.OptionParser()
         parser.add_option('-s', '--server', dest='server', help='ftp server ip address')
         parser.add_option('-P', '--port', dest='port', help='ftp server port')
@@ -77,6 +79,8 @@ class FTPClient(object):
         print('response:', response)
         if response.get('status_code') == 200:
             self.username = username
+            self.current_dir = '/'
+            self.terminal_display = "[/%s]>>:" % self.username
             return True
         else:
             print(response.get('status_msg'))
@@ -94,7 +98,7 @@ class FTPClient(object):
     def interactive(self):
         if  self.auth():
             while True:
-                user_input = input("[%s]>>:" % self.username).strip()
+                user_input = input(self.terminal_display).strip()
                 if not user_input:
                     continue
 
@@ -155,6 +159,19 @@ class FTPClient(object):
                 received_size += len(data)
                 cmd_result += data
             print(cmd_result.decode())
+
+
+    def _cd(self, cmd_list):
+        '''change the server current directory'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            target_dir = cmd_list[0]
+            self.send_msg(action_type='cd', target_dir=target_dir)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 310:
+                self.terminal_display = "[/%s%s]" % (self.username, response.get('current_dir'))
+                self.current_dir = response.get('current_dir')
+            
 
 
     def _get(self, cmd_list):
