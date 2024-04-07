@@ -182,9 +182,10 @@ class FTPClient(object):
             response = self.get_response()
             if response.get('status_code') == 301:
                 file_size = response.get('file_size')
-
+                # get the filename from the full path
+                filename1 = filename.split('/')[-1]
                 received_size = 0
-                with open(filename, 'wb') as f:
+                with open(filename1, 'wb') as f:
                     while received_size < file_size:
                         if file_size - received_size < self.RECV_SIZE:
                             data = self.sock.recv(file_size - received_size)
