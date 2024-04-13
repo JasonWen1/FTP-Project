@@ -186,6 +186,24 @@ class FTPClient(object):
             else:
                 print('Failed to create directory [%s]' % dir_name)
 
+    def _rmdir(self, cmd_list):
+        '''remove a directory on the server if it's empty and handle current directory updates'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            dir_name = cmd_list[0]
+            self.send_msg(action_type='rmdir', dir_name=dir_name)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 320:
+                print('Successfully removed directory [%s]' % dir_name)
+                if 'current_dir' in response:
+                    self.current_dir = response['current_dir']  # Update local current directory
+                    print('Current directory updated to: %s' % self.current_dir)
+            elif response.get('status_code') == 321:
+                print('Directory is not empty [%s]' % dir_name)
+            else:
+                print('Failed to remove directory [%s]' % dir_name)
+
+
 
     def progress_bar(self, total_size,current_percent=0,last_percent=0):
         '''display the progress bar'''
@@ -254,7 +272,30 @@ class FTPClient(object):
                     print('file [%s] uploaded done! Sent file size is [%s]' % (local_file, file_size))
                     f.close()
 
+    
+    def _rm(self, cmd_list):
+        '''send request to remove a file on the server'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            filename = cmd_list[0]
+            self.send_msg(action_type='rm', filename=filename)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 301:
+                print(f'Successfully removed file [{filename}]')
+            else:
+                print(f'Failed to remove file [{filename}]')
 
+    def _rm_rf(self, cmd_list):
+        '''send request to recursively remove a directory on the server'''
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            dir_name = cmd_list[0]
+            self.send_msg(action_type='rm_rf', dir_name=dir_name)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 320:
+                print(f'Successfully removed directory and all contents [{dir_name}]')
+            else:
+                print(f'Failed to remove directory [{dir_name}]')
 
 
 
