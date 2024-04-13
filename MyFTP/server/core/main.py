@@ -6,6 +6,9 @@ import configparser
 import hashlib
 import subprocess
 import time
+import shutil
+
+
 
 class FTPServer(object):
     '''FTP server class'''
@@ -243,3 +246,54 @@ class FTPServer(object):
         else:
             self.send_response(status_code=321)
 
+    def _rmdir(self, data):
+        '''remove a directory if it's empty and adjust the current working directory if needed'''
+        dir_name = data.get('dir_name')
+        full_path = os.path.join(self.user_current_dir, dir_name)
+        if os.path.isdir(full_path):
+            if not os.listdir(full_path):  # Check if the directory is empty
+                os.rmdir(full_path)
+                # Check if the current working directory is within the directory being removed
+                if self.user_current_dir.startswith(full_path):
+                    # Move the current directory up one level
+                    self.user_current_dir = os.path.abspath(os.path.join(full_path, os.pardir))
+                self.send_response(status_code=320, current_dir=self.user_current_dir)
+            else:
+                self.send_response(status_code=321)  # Directory is not empty
+        else:
+            self.send_response(status_code=311)  # Directory does not exist
+
+    def _rm(self, data):
+        '''remove a file'''
+        filename = data.get('filename')
+        full_path = os.path.join(self.user_current_dir, filename)
+
+        # Check if the file exists
+        if not os.path.isfile(full_path):
+            self.send_response(status_code=300, status_msg="File does not exist.")
+            return
+
+        # Attempt to remove the file
+        try:
+            os.remove(full_path)
+            self.send_response(status_code=301, status_msg="File removed successfully.")
+        except OSError as e:
+            self.send_response(status_code=302, status_msg=f"Error removing file: {str(e)}")
+
+
+    def _rm_rf(self, data):
+        '''recursively remove a directory and all its contents'''
+        dir_name = data.get('dir_name')
+        full_path = os.path.join(self.user_current_dir, dir_name)
+
+        # Check if the directory exists
+        if not os.path.exists(full_path):
+            self.send_response(status_code=311, status_msg="Directory does not exist.")
+            return
+
+        # Try to remove the directory and its contents
+        try:
+            shutil.rmtree(full_path)
+            self.send_response(status_code=320, status_msg="Directory and all contents removed successfully.")
+        except Exception as e:
+            self.send_response(status_code=322, status_msg=f"Failed to remove directory: {str(e)}")
