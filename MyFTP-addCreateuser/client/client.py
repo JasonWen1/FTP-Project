@@ -195,6 +195,34 @@ class FTPClient(object):
             else:
                 print('Failed to create directory [%s]' % dir_name)
 
+    def _rmdir(self, cmd_list):
+        """
+        Sends a request to remove an empty directory on the server.
+        The method checks if the directory is empty before removal and updates the local current directory if necessary.
+
+        Args:
+        cmd_list (list): A list containing the directory name to be removed.
+
+        The method sends a request to remove an empty directory and updates the current working directory based on the server's response.
+        It handles various responses such as successful removal, failure due to non-empty directory, or other errors.
+        """
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            dir_name = cmd_list[0]
+            self.send_msg(action_type='rmdir', dir_name=dir_name)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 320:
+                print('Successfully removed directory [%s]' % dir_name)
+                if 'current_dir' in response:
+                    # Update local current directory
+                    self.current_dir = response['current_dir']
+                    print('Current directory updated to: %s' %
+                          self.current_dir)
+            elif response.get('status_code') == 321:
+                print('Directory is not empty [%s]' % dir_name)
+            else:
+                print('Failed to remove directory [%s]' % dir_name)
+    
     def progress_bar(self, total_size, current_percent=0, last_percent=0):
         '''display the progress bar'''
         while True:
@@ -278,6 +306,48 @@ class FTPClient(object):
             print('Error creating user, Username already exists.')
             return False
 
+    def _rm(self, cmd_list):
+        """
+        Sends a request to remove a file on the server.
+        This method checks command parameters for correctness before sending a delete request.
+
+        Args:
+        cmd_list (list): A list containing the filename to be deleted.
+
+        The method sends a delete request to the server and processes the response,
+        displaying an appropriate message based on whether the deletion was successful.
+        """
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            filename = cmd_list[0]
+            self.send_msg(action_type='rm', filename=filename)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 301:
+                print(f'Successfully removed file [{filename}]')
+            else:
+                print(f'Failed to remove file [{filename}]')
+
+    def _rm_rf(self, cmd_list):
+        """
+        Sends a request to recursively remove a directory and its contents on the server.
+        This method checks if the correct number of command parameters are provided before sending the request.
+
+        Args:
+        cmd_list (list): A list containing the directory name to be deleted recursively.
+
+        The method sends a recursive deletion request to the server and handles the response,
+        indicating success or failure of the directory removal.
+        """
+        if self.check_cmd_params(cmd_list, exact_params=1):
+            dir_name = cmd_list[0]
+            self.send_msg(action_type='rm_rf', dir_name=dir_name)
+            response = self.get_response()
+            print(response.get('status_msg'))
+            if response.get('status_code') == 320:
+                print(
+                    f'Successfully removed directory and all contents [{dir_name}]')
+            else:
+                print(f'Failed to remove directory [{dir_name}]')
 
 if __name__ == '__main__':
     client = FTPClient()
