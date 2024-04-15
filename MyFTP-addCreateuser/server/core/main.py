@@ -7,6 +7,8 @@ import hashlib
 import subprocess
 import time
 import logging
+import shutil
+
 
 
 def setup_logger(username):
@@ -460,5 +462,87 @@ class FTPServer:
         # Log and print success message
         logger.info("User created successfully. Username: %s", username)
         print(f"User created successfully. Username: {username}")
+
+    def _rmdir(self, data):
+        '''remove a directory if it's empty and adjust the current working directory if needed'''
+        dir_name = data.get('dir_name')
+        full_path = os.path.join(self.user_current_dir, dir_name)
+        if os.path.isdir(full_path):
+            if not os.listdir(full_path):  # Check if the directory is empty
+                os.rmdir(full_path)
+                # Log directory removal
+                self.logger.info(f"Directory removed: {dir_name}")
+
+                # Check if the current working directory is within the directory being removed
+                if self.user_current_dir.startswith(full_path):
+                    # Move the current directory up one level
+                    self.user_current_dir = os.path.abspath(
+                        os.path.join(full_path, os.pardir))
+                self.send_response(
+                    status_code=320, current_dir=self.user_current_dir)
+            else:
+                self.send_response(status_code=321)  # Directory is not empty
+                self.logger.warning(
+                    f"Failed to remove directory {dir_name}: Directory not empty")
+        else:
+            self.send_response(status_code=311)  # Directory does not exist
+            self.logger.error(
+                f"Failed to remove directory {dir_name}: Directory does not exist")
+
+    def _rm(self, data):
+        '''remove a file'''
+        filename = data.get('filename')
+        full_path = os.path.join(self.user_current_dir, filename)
+
+        # Check if the file exists
+        if not os.path.isfile(full_path):
+            self.send_response(
+                status_code=300, status_msg="File does not exist.")
+            self.logger.error(
+                f"File removal failed: {filename} does not exist")
+            return
+
+        # Attempt to remove the file
+        try:
+            os.remove(full_path)
+            self.send_response(
+                status_code=301, status_msg="File removed successfully.")
+            self.logger.info(f"File removed: {filename}")
+        except OSError as e:
+            self.send_response(
+                status_code=302, status_msg=f"Error removing file: {str(e)}")
+            self.logger.error(f"Error removing file {filename}: {str(e)}")
+
+    def _rm_rf(self, data):
+        """
+        Recursively remove a directory and all its contents with logging.
+
+        Args:
+        data (dict): A dictionary containing 'dir_name', the name of the directory to remove.
+        """
+        dir_name = data.get('dir_name')
+        full_path = os.path.join(self.user_current_dir, dir_name)
+
+        # Check if the directory exists
+        if not os.path.exists(full_path):
+            self.send_response(
+                status_code=311, status_msg="Directory does not exist.")
+            self.logger.warning(
+                f"Attempted to remove non-existent directory: {dir_name}")
+            return
+
+        # Try to remove the directory and its contents
+        try:
+            shutil.rmtree(full_path)
+            self.send_response(
+                status_code=320, status_msg="Directory and all contents removed successfully.")
+            self.logger.info(
+                f"Successfully removed directory and its contents: {dir_name}")
+
+        except Exception as e:
+            self.send_response(
+                status_code=322, status_msg=f"Failed to remove directory: {str(e)}")
+            self.logger.error(
+                f"Failed to remove directory {dir_name}: {str(e)}")
 
         exit(0)
