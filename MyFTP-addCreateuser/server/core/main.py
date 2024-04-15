@@ -373,6 +373,28 @@ class FTPServer:
         Args:
         data (dict): A dictionary containing the username and password.
         """
+        # Setup local logger for this function
+        logger = logging.getLogger('CreateUserDirectly')
+        log_directory = os.path.join(os.path.dirname(__file__), '..', 'log')
+        # Ensure the log directory exists
+        os.makedirs(log_directory, exist_ok=True)
+        log_file_path = os.path.join(log_directory, 'ftp_server.log')
+
+        # Setup file handler with a specific formatter
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+        # Attach handler to the logger
+        logger.addHandler(file_handler)
+        logger.setLevel(logging.INFO)
+
+        # Clear any previous handlers if they exist to avoid duplicate logs
+        if logger.hasHandlers():
+            logger.handlers.clear()
+
+        logger.addHandler(file_handler)
+
         username = data.get('username')
         password = hashlib.md5(data.get('password').encode()).hexdigest()
         if username not in self.accounts:
@@ -381,11 +403,19 @@ class FTPServer:
                 settings.USER_BASE_DIR, username), exist_ok=True)
             self.save_accounts()
             self.send_response(200, status_msg="User created successfully.")
-            self.logger.info(f"User created: {username}")
+            logger.info(f"User created: {username}")
         else:
             self.send_response(400, status_msg="Username already exists.")
-            self.logger.warning(
+            logger.warning(
                 f"Failed to create user: Username {username} already exists.")
+
+        # Log the success message using the local logger
+        logger.info("User created successfully. Username: %s", username)
+        print(f"User created successfully. Username: {username}")
+
+        # Detach the file handler after logging to avoid interference with other loggers
+        logger.removeHandler(file_handler)
+        file_handler.close()
 
     def create_user_directly(self, username, password):
         """
