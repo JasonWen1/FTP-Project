@@ -464,7 +464,16 @@ class FTPServer:
         print(f"User created successfully. Username: {username}")
 
     def _rmdir(self, data):
-        '''remove a directory if it's empty and adjust the current working directory if needed'''
+        """
+        Sends a request to remove an empty directory on the server.
+        The method checks if the directory is empty before removal and updates the local current directory if necessary.
+    
+        Args:
+        cmd_list (list): A list containing the directory name to be removed.
+    
+        The method sends a request to remove an empty directory and updates the current working directory based on the server's response.
+        It handles various responses such as successful removal, failure due to non-empty directory, or other errors.
+        """
         dir_name = data.get('dir_name')
         full_path = os.path.join(self.user_current_dir, dir_name)
         if os.path.isdir(full_path):
@@ -490,7 +499,16 @@ class FTPServer:
                 f"Failed to remove directory {dir_name}: Directory does not exist")
 
     def _rm(self, data):
-        '''remove a file'''
+        """
+        Sends a request to remove a file on the server.
+        This method checks command parameters for correctness before sending a delete request.
+    
+        Args:
+        cmd_list (list): A list containing the filename to be deleted.
+    
+        The method sends a delete request to the server and processes the response,
+        displaying an appropriate message based on whether the deletion was successful.
+        """
         filename = data.get('filename')
         full_path = os.path.join(self.user_current_dir, filename)
 
