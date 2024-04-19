@@ -185,6 +185,8 @@ class FTPServer(socketserver.BaseRequestHandler):
                     settings.USER_BASE_DIR, username)
                 # set the current directory for the user
                 self.user_current_dir = self.user['home']
+                #if not os.path.exists(self.user_current_dir):
+                os.makedirs(self.user_current_dir, exist_ok=True)
                 # Setup user-specific logger after authentication
                 self.logger = setup_logger(username)
                 self.logger.info(f'User {username} logged in successfully.')
