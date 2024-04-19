@@ -1,4 +1,3 @@
-import socket
 from conf import settings
 import json
 import os
@@ -8,6 +7,7 @@ import subprocess
 import time
 import logging
 import shutil
+import socketserver
 
 
 
@@ -45,7 +45,7 @@ def setup_logger(username):
     return logger
 
 
-class FTPServer:
+class FTPServer(socketserver.BaseRequestHandler):
     """
     A class representing an FTP server which handles connections,
     authentications, and file operations with logging integrated.
@@ -71,24 +71,28 @@ class FTPServer:
     MSG_SIZE = 1024
     RECV_SIZE = 8192
 
-    def __init__(self, utils):
+    def __init__(self, request, client_address, server):
         """
         Initializes the FTPServer object with utilities and configurations.
 
         Parameters:
         - utils: A utility object providing additional functionalities (not detailed here).
         """
-        self.utils = utils
+        '''
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((settings.HOST, settings.PORT))
         self.sock.listen(settings.MAX_SOCKET_LISTEN)
+        '''
+        
         # Default logger before authentication
         self.logger = logging.getLogger('FTPServer')
         self.accounts = self.load_accounts()
         self.user = None
         self.user_current_dir = None
+        super().__init__(request, client_address, server)
 
+    '''
     def run(self):
         """
         Starts the FTP server to listen for incoming connections continuously.
@@ -99,7 +103,7 @@ class FTPServer:
         self.logger.info('FTP server is running.')
 
         while True:
-            self.conn, self.addr = self.sock.accept()
+            #self.conn, self.addr = self.sock.accept()
             self.logger.info(f'Connected from: {self.addr}')
             try:
                 self.handle()
@@ -107,30 +111,40 @@ class FTPServer:
                 self.logger.exception(
                     'Error with client, closing connection: %s', e)
                 self.conn.close()
+    '''
 
     def handle(self):
         """
         Handles the incoming data on a connected socket. Processes each message according to its action type.
         """
-        while True:
-            raw_data = self.conn.recv(1024)
-            if not raw_data:
-                self.logger.info("Connection closed.")
-                return
-            print('----->', raw_data)
 
-            try:
-                data = json.loads(raw_data.decode("utf-8"))
-                action_type = data.get('action_type')
-                if action_type:
-                    if hasattr(self, "_%s" % action_type):
-                        func = getattr(self, "_%s" % action_type)
-                        func(data)
-                else:
-                    print('invalid command')
-                    self.logger.error("Invalid command received.")
-            except json.JSONDecodeError as e:
-                self.logger.error(f"Error decoding JSON: {str(e)}")
+        print('Connected from: ', self.client_address)
+        self.logger.info('FTP server is running.')
+        try:
+            while True:
+                raw_data = self.request.recv(1024).strip()
+                if not raw_data:
+                    self.logger.info("Connection closed.")
+                    return
+                print('----->', raw_data)
+
+                try:
+                    data = json.loads(raw_data.decode("utf-8"))
+                    action_type = data.get('action_type')
+                    if action_type:
+                        if hasattr(self, "_%s" % action_type):
+                            func = getattr(self, "_%s" % action_type)
+                            func(data)
+                    else:
+                        print('invalid command')
+                        self.logger.error("Invalid command received.")
+                except json.JSONDecodeError as e:
+                    self.logger.error(f"Error decoding JSON: {str(e)}")
+        except Exception as e:
+            self.logger.exception(
+                'Error with client, closing connection: %s', e)
+            
+
 
     def load_accounts(self):
         """
@@ -200,7 +214,7 @@ class FTPServer:
                 self.MSG_SIZE - len(data_in_bytes))
             data_in_bytes = json.dumps(data).encode('utf-8')
 
-        self.conn.send(data_in_bytes)
+        self.request.send(data_in_bytes)
         self.logger.info(f'Response sent to client: {data}')
 
     '''authenticate the user'''
@@ -234,7 +248,7 @@ class FTPServer:
             self.send_response(status_code=301, file_size=file_size)
             with open(full_path, 'rb') as f:
                 for line in f:
-                    self.conn.send(line)
+                    self.request.send(line)
             self.logger.info(
                 f'File {filename} sent successfully to the client from {full_path}')
         else:
@@ -263,9 +277,9 @@ class FTPServer:
         received_size = 0
         while received_size < file_size:
             if file_size - received_size < self.RECV_SIZE:
-                data = self.conn.recv(file_size - received_size)
+                data = self.request.recv(file_size - received_size)
             else:
-                data = self.conn.recv(self.RECV_SIZE)
+                data = self.request.recv(self.RECV_SIZE)
             received_size += len(data)
             f.write(data)
             print(received_size, file_size)
@@ -294,7 +308,7 @@ class FTPServer:
             cmd_result_size = len(cmd_result)
 
         self.send_response(status_code=302, cmd_result_size=cmd_result_size)
-        self.conn.sendall(cmd_result)
+        self.request.send(cmd_result)
         self.logger.info(
             f"List directory contents for {self.user_current_dir}: {cmd_result.decode()}")
 
@@ -563,4 +577,3 @@ class FTPServer:
             self.logger.error(
                 f"Failed to remove directory {dir_name}: {str(e)}")
 
-        exit(0)

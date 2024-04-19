@@ -1,5 +1,6 @@
 from core import main
-
+import socketserver
+from conf import settings
 
 class Utils(object):
     """
@@ -56,8 +57,9 @@ class Utils(object):
         Starts the FTP server. This method is called when the 'start' command is used.
         """
         print('start ftp server')
-        server = main.FTPServer(self)
-        server.run()
+        #server = main.FTPServer(self)
+        server = socketserver.ThreadingTCPServer((settings.HOST, settings.PORT), main.FTPServer)
+        server.serve_forever()
 
     def createuser(self):
         """
