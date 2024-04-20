@@ -70,6 +70,5 @@ class Utils(object):
             print("Usage: python server.py createuser <username> <password>")
             exit(1)
         username, password = self.argv[2], self.argv[3]
-        server = main.FTPServer(self)
-        # Call a method to create a user, passing username and password
-        server.create_user_directly(username, password)
+        # Correctly calling the static method of the FTPServer class
+        main.FTPServer.create_user_directly(username, password)
