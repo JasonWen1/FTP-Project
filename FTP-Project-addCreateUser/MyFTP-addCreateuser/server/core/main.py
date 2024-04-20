@@ -10,7 +10,6 @@ import shutil
 import socketserver
 
 
-
 def setup_logger(username):
     """
     Setup a logger specific to a username with a unique timestamp.
@@ -41,6 +40,28 @@ def setup_logger(username):
         stream_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(stream_handler)
+
+    return logger
+
+
+def get_logger(name=None):
+    """Configure and return a logger."""
+    log_directory = os.path.join(os.path.dirname(__file__), '..', 'log')
+    os.makedirs(log_directory, exist_ok=True)
+    log_file_path = os.path.join(log_directory, 'ftp_server.log')
+
+    # Set up a specific logger with our desired output level
+    logger = logging.getLogger(name if name else 'FTPServer')
+    logger.setLevel(logging.INFO)
+
+    # Check if the logger already has handlers configured
+    if not logger.handlers:
+        # Add the log message handler to the logger
+        handler = logging.FileHandler(log_file_path)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     return logger
 
@@ -84,7 +105,7 @@ class FTPServer(socketserver.BaseRequestHandler):
         self.sock.bind((settings.HOST, settings.PORT))
         self.sock.listen(settings.MAX_SOCKET_LISTEN)
         '''
-        
+
         # Default logger before authentication
         self.logger = logging.getLogger('FTPServer')
         self.accounts = self.load_accounts()
@@ -143,8 +164,6 @@ class FTPServer(socketserver.BaseRequestHandler):
         except Exception as e:
             self.logger.exception(
                 'Error with client, closing connection: %s', e)
-            
-
 
     def load_accounts(self):
         """
@@ -185,7 +204,7 @@ class FTPServer(socketserver.BaseRequestHandler):
                     settings.USER_BASE_DIR, username)
                 # set the current directory for the user
                 self.user_current_dir = self.user['home']
-                #if not os.path.exists(self.user_current_dir):
+                # if not os.path.exists(self.user_current_dir):
                 os.makedirs(self.user_current_dir, exist_ok=True)
                 # Setup user-specific logger after authentication
                 self.logger = setup_logger(username)
@@ -421,21 +440,18 @@ class FTPServer(socketserver.BaseRequestHandler):
                 settings.USER_BASE_DIR, username), exist_ok=True)
             self.save_accounts()
             self.send_response(200, status_msg="User created successfully.")
-            logger.info(f"User created: {username}")
+            logger.info("User created successfully. Username: %s", username)
         else:
             self.send_response(400, status_msg="Username already exists.")
             logger.warning(
                 f"Failed to create user: Username {username} already exists.")
 
-        # Log the success message using the local logger
-        logger.info("User created successfully. Username: %s", username)
-        print(f"User created successfully. Username: {username}")
-
         # Detach the file handler after logging to avoid interference with other loggers
         logger.removeHandler(file_handler)
         file_handler.close()
 
-    def create_user_directly(self, username, password):
+    @staticmethod
+    def create_user_directly(username, password):
         """
         Directly creates a user from the command line input.
         This function is used for administrative purposes to add users without client interaction.
@@ -444,20 +460,11 @@ class FTPServer(socketserver.BaseRequestHandler):
         username (str): Desired username for the new account.
         password (str): Raw password which will be hashed before storage.
         """
-        # Setup local logger for this function
-        logger = logging.getLogger('CreateUserDirectly')
-        log_directory = os.path.join(os.path.dirname(__file__), '..', 'log')
-        log_file_path = os.path.join(log_directory, 'ftp_server.log')
-
-        if not logger.handlers:  # Avoid adding handlers multiple times
-            file_handler = logging.FileHandler(log_file_path)
-            file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-            logger.addHandler(file_handler)
-            logger.setLevel(logging.INFO)
+        logger = get_logger("StaticMethod")
+        accounts = FTPServer.load_accounts_static()
 
         # Check if the username already exists
-        if username in self.accounts:
+        if username in accounts:
             logger.error(
                 "Attempt to create a user that already exists: Username: %s", username)
             print("Error: Username already exists.")
@@ -465,28 +472,68 @@ class FTPServer(socketserver.BaseRequestHandler):
 
         # Hash the password
         password_hashed = hashlib.md5(password.encode()).hexdigest()
+
         # Add the user to the accounts dictionary
-        self.accounts[username] = {'password': password_hashed}
+        accounts[username] = {'password': password_hashed}
 
         # Create the user directory
         user_directory = os.path.join(settings.USER_BASE_DIR, username)
         os.makedirs(user_directory, exist_ok=True)
 
         # Save the updated accounts information
-        self.save_accounts()
+        FTPServer.save_accounts_static(accounts)
 
         # Log and print success message
         logger.info("User created successfully. Username: %s", username)
         print(f"User created successfully. Username: {username}")
 
+    @staticmethod
+    def load_accounts_static():
+        """
+        Loads the account information from a configuration file.
+        This function populates the server's accounts dictionary with user information.
+
+        Returns:
+        accounts (dict): A dictionary of accounts with usernames as keys.
+        """
+        logger = get_logger("StaticMethod")
+        config = configparser.ConfigParser()
+        # Construct the path to the configuration file
+        config_path = os.path.join(os.path.dirname(
+            __file__), '..', 'conf', 'accounts.ini')
+        config.read(config_path)
+        accounts = {section: dict(config.items(section))
+                    for section in config.sections()}
+        logger.info("Loading accounts from static method")
+        return accounts
+
+    @staticmethod
+    def save_accounts_static(accounts):
+        """Static method to save accounts."""
+        logger = get_logger("StaticMethod")
+        config = configparser.ConfigParser()
+        account_file_path = os.path.join(os.path.dirname(
+            __file__), '..', 'conf', 'accounts.ini')
+        config.read(account_file_path)
+
+        for username, details in accounts.items():
+            if not config.has_section(username):
+                config.add_section(username)
+            for key, value in details.items():
+                config.set(username, key, value)
+
+        with open(account_file_path, 'w') as configfile:
+            config.write(configfile)
+        logger.info("Accounts saved by static method")
+
     def _rmdir(self, data):
         """
         Sends a request to remove an empty directory on the server.
         The method checks if the directory is empty before removal and updates the local current directory if necessary.
-    
+
         Args:
         cmd_list (list): A list containing the directory name to be removed.
-    
+
         The method sends a request to remove an empty directory and updates the current working directory based on the server's response.
         It handles various responses such as successful removal, failure due to non-empty directory, or other errors.
         """
@@ -518,10 +565,10 @@ class FTPServer(socketserver.BaseRequestHandler):
         """
         Sends a request to remove a file on the server.
         This method checks command parameters for correctness before sending a delete request.
-    
+
         Args:
         cmd_list (list): A list containing the filename to be deleted.
-    
+
         The method sends a delete request to the server and processes the response,
         displaying an appropriate message based on whether the deletion was successful.
         """
@@ -578,4 +625,3 @@ class FTPServer(socketserver.BaseRequestHandler):
                 status_code=322, status_msg=f"Failed to remove directory: {str(e)}")
             self.logger.error(
                 f"Failed to remove directory {dir_name}: {str(e)}")
-
