@@ -45,7 +45,16 @@ def setup_logger(username):
 
 
 def get_logger(name=None):
-    """Configure and return a logger."""
+    """
+    Configures and returns a logger with a specified name, defaulting to 'FTPServer'.
+    Ensures that each logger has only one instance of handlers to prevent duplicate logs.
+
+    Parameters:
+    - name (str, optional): The name of the logger. Defaults to 'FTPServer'.
+
+    Returns:
+    - logger (Logger): A configured Logger instance.
+    """
     log_directory = os.path.join(os.path.dirname(__file__), '..', 'log')
     os.makedirs(log_directory, exist_ok=True)
     log_file_path = os.path.join(log_directory, 'ftp_server.log')
@@ -68,13 +77,13 @@ def get_logger(name=None):
 
 class FTPServer(socketserver.BaseRequestHandler):
     """
-    A class representing an FTP server which handles connections,
-    authentications, and file operations with logging integrated.
+    Represents an FTP server that handles network connections, user authentications, and file operations.
+    It includes detailed logging capabilities for audit and debugging purposes.
 
     Attributes:
-    - STATUS_CODE (dict): A dictionary mapping status codes to their descriptive messages.
-    - MSG_SIZE (int): Standard size of messages sent to the client.
-    - RECV_SIZE (int): Maximum size of data received at once from the client.
+    - STATUS_CODE (dict): Maps numerical status codes to descriptive messages.
+    - MSG_SIZE (int): Standard size for messages sent to clients.
+    - RECV_SIZE (int): Maximum size for data received from clients in one operation.
     """
     STATUS_CODE = {
         200: 'Passed authentication!',
@@ -94,17 +103,13 @@ class FTPServer(socketserver.BaseRequestHandler):
 
     def __init__(self, request, client_address, server):
         """
-        Initializes the FTPServer object with utilities and configurations.
+        Initializes an instance of the FTPServer with essential configurations and setups.
 
         Parameters:
-        - utils: A utility object providing additional functionalities (not detailed here).
+        - request: The incoming network request.
+        - client_address: Address of the client sending the request.
+        - server: The server instance.
         """
-        '''
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((settings.HOST, settings.PORT))
-        self.sock.listen(settings.MAX_SOCKET_LISTEN)
-        '''
 
         # Default logger before authentication
         self.logger = logging.getLogger('FTPServer')
@@ -136,7 +141,7 @@ class FTPServer(socketserver.BaseRequestHandler):
 
     def handle(self):
         """
-        Handles the incoming data on a connected socket. Processes each message according to its action type.
+        Processes incoming data on the connected socket. Decodes messages and dispatches them based on action type.
         """
 
         print('Connected from: ', self.client_address)
@@ -218,12 +223,10 @@ class FTPServer(socketserver.BaseRequestHandler):
         return False
 
     def send_response(self, status_code, *args, **kwargs):
-        '''send response to the client'''
-        '''
-        :param status_code: the status code
-        :param args: other arguments
-        :param kwargs: other keyword arguments, format: {'key': 'value', 'key2': 'value2'}
-        '''
+        """
+        Encodes and sends a response to the client with the given status code and additional data.
+        The method ensures the response message size is fixed for consistent client handling.
+        """
         data = kwargs
         data['status_code'] = status_code
         data['status_msg'] = self.STATUS_CODE[status_code]
